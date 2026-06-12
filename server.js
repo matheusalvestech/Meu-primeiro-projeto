@@ -1,9 +1,5 @@
 require('dns').setDefaultResultOrder('ipv4first'); 
 require('dotenv').config();
-app.use((err, req, res, next) => {
-    console.error("ERRO GLOBAL:", err.stack);
-    res.status(500).send('Algo deu errado no servidor!');
-});
 console.log("DEBUG - O e-mail carregado foi:", process.env.EMAIL_REMETENTE);
 const express = require('express');
 const cors = require('cors');
