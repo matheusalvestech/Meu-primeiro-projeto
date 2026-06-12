@@ -13,7 +13,16 @@ const nodemailer = require('nodemailer');
 const app = express();
 app.use(cors());
 app.use(express.json());
+let db;
 
+function inicializarBanco() {
+    const path = require('path');
+    const dbPath = process.env.RENDER ? '/tmp/historico_leis.db' : './historico_leis.db';
+    db = new sqlite3.Database(dbPath, (err) => {
+        if (err) console.error("ERRO AO ABRIR BANCO:", err);
+        else console.log("✅ Banco de dados conectado com sucesso!");
+    });
+}
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const db = new sqlite3.Database('./historico_leis.db');
 const CHAVE_SECRETA = process.env.CHAVE_SECRETA;
@@ -235,4 +244,5 @@ app.post('/api/sincronizar', verificarCracha, async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${PORT}`);
+    inicializarBanco(); // O banco só tenta abrir agora
 });
