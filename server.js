@@ -13,16 +13,43 @@ const nodemailer = require('nodemailer');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 let db;
 
 function inicializarBanco() {
     const path = require('path');
     const dbPath = process.env.RENDER ? '/tmp/historico_leis.db' : './historico_leis.db';
+    }
     db = new sqlite3.Database(dbPath, (err) => {
-        if (err) console.error("ERRO AO ABRIR BANCO:", err);
-        else console.log("✅ Banco de dados conectado com sucesso!");
+    if (err) {
+            console.error("ERRO AO ABRIR BANCO:", err);
+        } else {
+            console.log("✅ Banco de dados conectado com sucesso!");
+            db.serialize(() => {
+                // Tabela de leis
+                db.run(`CREATE TABLE IF NOT EXISTS leis_analisadas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    id_lei TEXT, 
+                    ementa TEXT, 
+                    impacto TEXT, 
+                    resumo_ia TEXT, 
+                    usuario_id INTEGER, 
+                    data_analise DATETIME DEFAULT CURRENT_TIMESTAMP
+                )`);
+    
+                // Tabela de usuários
+                db.run(`CREATE TABLE IF NOT EXISTS usuarios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    nome TEXT, 
+                    email TEXT UNIQUE, 
+                    senha TEXT, 
+                    segmento TEXT, 
+                    status TEXT DEFAULT 'pendente', 
+                    codigo_verificacao TEXT
+                )`);
+            });
+        } 
     });
-}
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const CHAVE_SECRETA = process.env.CHAVE_SECRETA;
 let estaSincronizando = false;
@@ -39,12 +66,7 @@ const carteiro = nodemailer.createTransport({
     tls: { rejectUnauthorized: false }
 });
 
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS leis_analisadas (id INTEGER PRIMARY KEY AUTOINCREMENT, id_lei TEXT, ementa TEXT, impacto TEXT, resumo_ia TEXT, usuario_id INTEGER, data_analise DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-    
-    // MUDANÇA 1: Tabela de usuários agora tem "status" e "codigo_verificacao"
-    db.run(`CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha TEXT, segmento TEXT, status TEXT DEFAULT 'pendente', codigo_verificacao TEXT)`);
-});
+
 
 function verificarCracha(req, res, next) {
     const cabecalho = req.headers['authorization'];
