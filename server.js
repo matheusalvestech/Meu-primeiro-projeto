@@ -1,5 +1,9 @@
 require('dns').setDefaultResultOrder('ipv4first'); 
 require('dotenv').config();
+app.use((err, req, res, next) => {
+    console.error("ERRO GLOBAL:", err.stack);
+    res.status(500).send('Algo deu errado no servidor!');
+});
 console.log("DEBUG - O e-mail carregado foi:", process.env.EMAIL_REMETENTE);
 const express = require('express');
 const cors = require('cors');
@@ -232,4 +236,7 @@ app.post('/api/sincronizar', verificarCracha, async (req, res) => {
     });
 });
 
-app.listen(3000, () => console.log('🌐 Servidor com Opt-in rodando na porta 3000!'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+});
