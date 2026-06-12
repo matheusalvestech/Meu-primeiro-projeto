@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Legislativo</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        .cabecalho { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px;}
+        .cabecalho h1 { color: #2c3e50; margin: 0; }
+        
+        .botoes-topo { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .btn { border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; font-size: 0.9rem; }
+        .btn:hover { opacity: 0.8; }
+        
+        /* Cores dos botões novos */
+        .btn-pdf { background: #3498db; color: white; }
+        .btn-sincronizar { background: #27ae60; color: white; }
+        .btn-sair { background: #e74c3c; color: white; }
+        .filtro-select { padding: 9px; border-radius: 5px; border: 1px solid #ccc; font-weight: bold; color: #2c3e50; cursor: pointer; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        
+        .card { background: #ffffff; border-radius: 10px; padding: 25px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); transition: transform 0.2s ease; page-break-inside: avoid; }
+        .card h3 { margin: 0 0 10px 0; font-size: 1.3rem; color: #2c3e50; }
+        .ementa { font-size: 0.95rem; color: #7f8c8d; margin-bottom: 20px; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .tag { display: inline-block; padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: bold; margin-bottom: 15px; color: white; }
+        .data { font-size: 0.8rem; color: #bdc3c7; margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 10px; }
+
+        .card-alto { border-top: 5px solid #e74c3c; }
+        .tag-alto { background: #e74c3c; }
+        .resumo-alto { background-color: #fdf2f2; padding: 15px; border-radius: 8px; font-size: 0.95rem; color: #c0392b; border-left: 3px solid #e74c3c; }
+
+        .card-baixo { border-top: 5px solid #bdc3c7; opacity: 0.85; }
+        .tag-baixo { background: #bdc3c7; }
+        .resumo-baixo { background-color: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 0.95rem; color: #7f8c8d; border-left: 3px solid #bdc3c7; }
+
+        .mensagem-tela { text-align: center; font-size: 1.1rem; color: #7f8c8d; grid-column: 1 / -1; background: white; padding: 20px; border-radius: 8px; border: 1px dashed #ccc;}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="cabecalho">
+            <h1>🚨 Dashboard de Alertas</h1>
+            <div class="botoes-topo">
+                <select id="filtroImpacto" class="filtro-select" onchange="aplicarFiltro()">
+                    <option value="Todos">Exibir Tudo</option>
+                    <option value="Alto">Somente Alto Impacto</option>
+                    <option value="Baixo">Somente Baixo Impacto</option>
+                </select>
+
+                <button class="btn btn-pdf" onclick="gerarPDF()">📄 Baixar Relatório</button>
+                
+                <button class="btn btn-sincronizar" onclick="sincronizarNovasLeis()" id="btnSync">🔄 Buscar Novas Leis</button>
+                <button class="btn btn-limpar" onclick="limparHistorico()" style="background: #e67e22; color: white;">🗑️ Limpar Histórico</button>
+                <button class="btn btn-sair" onclick="fazerLogout()">Sair</button>
+            </div>
+        </div>
+        
+        <div id="area-relatorio">
+            <div id="painel-alertas" class="grid">
+                <p class="mensagem-tela">Carregando histórico...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variável global para guardar as leis na memória do navegador e não precisar ir no servidor toda hora
+        let leisGlobais = [];
+
+        function fazerLogout() {
+            localStorage.removeItem('tokenDoUsuario');
+            window.location.href = 'login.html';
+        }
+
+        async function buscarEExibirAlertas() {
+            const token = localStorage.getItem('tokenDoUsuario');
+            if (!token) { window.location.href = 'login.html'; return; }
+
+            try {
+                const resposta = await fetch('http://localhost:3000/api/alertas', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (resposta.status === 403) return fazerLogout();
+
+                leisGlobais = await resposta.json(); // Guarda os dados no navegador
+                aplicarFiltro(); // Chama a função que desenha a tela
+                
+            } catch (erro) {
+                document.getElementById('painel-alertas').innerHTML = '<p class="mensagem-tela" style="color: red;">❌ Falha ao conectar.</p>';
+            }
+        }
+
+        // FUNÇÃO NOVA: Aplica o filtro selecionado e desenha os cards
+        function aplicarFiltro() {
+            const painel = document.getElementById('painel-alertas');
+            const valorFiltro = document.getElementById('filtroImpacto').value;
+            painel.innerHTML = ''; 
+
+            let leisFiltradas = leisGlobais;
+            
+            if (valorFiltro !== "Todos") {
+                leisFiltradas = leisGlobais.filter(lei => lei.impacto === valorFiltro);
+            }
+
+            if (leisFiltradas.length === 0) {
+                painel.innerHTML = '<div class="mensagem-tela">Nenhuma lei encontrada para este filtro.</div>';
+                return;
+            }
+
+            leisFiltradas.forEach(lei => {
+                const dataFormatada = new Date(lei.data_analise).toLocaleDateString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                const isAlto = lei.impacto === "Alto";
+                const cardHTML = `
+                    <div class="card ${isAlto ? "card-alto" : "card-baixo"}">
+                        <span class="tag ${isAlto ? "tag-alto" : "tag-baixo"}">${isAlto ? "ALTO IMPACTO" : "BAIXO IMPACTO"}</span>
+                        <h3>Proposição ID: ${lei.id_lei}</h3>
+                        <div class="ementa" title="${lei.ementa}">${lei.ementa}</div>
+                        <div class="${isAlto ? "resumo-alto" : "resumo-baixo"}"><strong>🧠 IA Analisou:</strong><br>${lei.resumo_ia}</div>
+                        <div class="data">Analisado em: ${dataFormatada}</div>
+                    </div>
+                `;
+                painel.innerHTML += cardHTML;
+            });
+        }
+
+        // FUNÇÃO NOVA: Transforma a tela em PDF
+        function gerarPDF() {
+            const elemento = document.getElementById('area-relatorio');
+            
+            // Configurações do PDF (Qualidade, formato folha A4, etc)
+            const opcoes = {
+                margin:       10,
+                filename:     'relatorio_leis_ia.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Avisa o usuário e começa a gerar
+            const botao = document.querySelector('.btn-pdf');
+            botao.innerText = "⏳ Gerando...";
+            
+            html2pdf().set(opcoes).from(elemento).save().then(() => {
+                botao.innerText = "📄 Baixar Relatório"; // Volta ao normal
+            });
+        }
+
+        async function sincronizarNovasLeis() {
+            const btn = document.getElementById('btnSync');
+            btn.innerText = "⏳ Analisando...";
+            btn.disabled = true;
+
+            const token = localStorage.getItem('tokenDoUsuario');
+            
+            try {
+                const res = await fetch('http://localhost:3000/api/sincronizar', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const dados = await res.json();
+                
+                if (dados.novas > 0) alert(`✅ Concluído! ${dados.novas} novas leis analisadas.`);
+                else alert("Tudo atualizado! Nenhuma lei nova.");
+                
+                buscarEExibirAlertas();
+                
+            } catch (erro) {
+                alert("Ocorreu um erro ao tentar sincronizar.");
+            }
+
+            btn.innerText = "🔄 Buscar Novas Leis";
+            btn.disabled = false;
+        }
+// FUNÇÃO NOVA: Pede ao servidor para apagar o histórico e recarrega a tela
+        async function limparHistorico() {
+            // Pede uma confirmação para o usuário não apagar sem querer
+            const confirmacao = confirm("Tem certeza que deseja apagar todas as leis do seu painel? Você poderá buscar novamente depois.");
+            if (!confirmacao) return;
+
+            const btn = document.querySelector('.btn-limpar');
+            btn.innerText = "⏳ Apagando...";
+            const token = localStorage.getItem('tokenDoUsuario');
+
+            try {
+                const res = await fetch('http://localhost:3000/api/limpar', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    alert("✅ Histórico apagado com sucesso!");
+                    buscarEExibirAlertas(); // Limpa a tela na mesma hora
+                } else {
+                    alert("Erro ao apagar o histórico.");
+                }
+            } catch (erro) {
+                alert("Falha na conexão.");
+            }
+
+            btn.innerText = "🗑️ Limpar Histórico";
+        }
+        buscarEExibirAlertas();
+    </script>
+</body>
+</html>

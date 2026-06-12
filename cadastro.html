@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro Seguro</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .caixa-cadastro { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 5px; }
+        p { text-align: center; color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px; }
+        input { width: 93%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { width: 100%; padding: 12px; background: #2c3e50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }
+        button:hover { background: #1a252f; }
+        .mensagem { text-align: center; margin-top: 15px; font-weight: bold; }
+        .link-login { display: block; text-align: center; margin-top: 15px; color: #2980b9; text-decoration: none; }
+        
+        #area-verificacao { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="caixa-cadastro">
+        
+        <div id="area-cadastro">
+            <h2>Criar Conta</h2>
+            <p>Seus dados estão protegidos.</p>
+            <div>
+                <input type="text" id="nome" placeholder="Nome Completo">
+                <input type="email" id="email" placeholder="E-mail Válido">
+                <input type="password" id="senha" placeholder="Senha">
+                <input type="text" id="segmento" placeholder="Seu segmento (Ex: Saúde)">
+                
+                <button type="button" onclick="fazerCadastro()">Cadastrar</button>
+            </div>
+            <a href="login.html" class="link-login">Já tem conta? Faça login</a>
+        </div>
+
+        <div id="area-verificacao">
+            <h2>Falta pouco! 🔐</h2>
+            <p>Enviamos um código para o seu e-mail.</p>
+            <div>
+                <input type="text" id="codigo" placeholder="Digite os 6 números" maxlength="6" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+                <button type="button" onclick="verificarCodigo()" style="background: #27ae60;">Ativar Minha Conta</button>
+            </div>
+        </div>
+
+        <div id="resultado" class="mensagem"></div>
+    </div>
+
+    <script>
+        let emailDigitado = ""; 
+
+        async function fazerCadastro() {
+            const nome = document.getElementById('nome').value;
+            emailDigitado = document.getElementById('email').value; 
+            const senha = document.getElementById('senha').value;
+            const segmento = document.getElementById('segmento').value;
+            const divResultado = document.getElementById('resultado');
+
+            // Validação manual para garantir que nada fique vazio
+            if (!nome || !emailDigitado || !senha || !segmento) {
+                divResultado.style.color = "red";
+                divResultado.innerHTML = "Por favor, preencha todos os campos.";
+                return;
+            }
+
+            divResultado.innerHTML = "Enviando código para seu e-mail...";
+            divResultado.style.color = "#7f8c8d";
+
+            try {
+                const resposta = await fetch('http://localhost:3000/api/cadastrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, email: emailDigitado, senha, segmento })
+                });
+
+                const dados = await resposta.json();
+
+                if (resposta.ok) {
+                    divResultado.innerHTML = "";
+                    document.getElementById('area-cadastro').style.display = 'none';
+                    document.getElementById('area-verificacao').style.display = 'block';
+                } else {
+                    divResultado.style.color = "red";
+                    divResultado.innerHTML = dados.erro;
+                }
+            } catch (erro) {
+                divResultado.style.color = "red";
+                divResultado.innerHTML = "Erro de conexão com o servidor.";
+            }
+        }
+
+        async function verificarCodigo() {
+            const codigo = document.getElementById('codigo').value;
+            const divResultado = document.getElementById('resultado');
+
+            if (!codigo) {
+                divResultado.style.color = "red";
+                divResultado.innerHTML = "Digite o código.";
+                return;
+            }
+
+            divResultado.innerHTML = "Verificando...";
+            divResultado.style.color = "#7f8c8d";
+
+            try {
+                const resposta = await fetch('http://localhost:3000/api/verificar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: emailDigitado, codigo })
+                });
+
+                const dados = await resposta.json();
+
+                if (resposta.ok) {
+                    divResultado.style.color = "green";
+                    divResultado.innerHTML = "✅ Conta ativada! Redirecionando para o Login...";
+                    setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+                } else {
+                    divResultado.style.color = "red";
+                    divResultado.innerHTML = dados.erro;
+                }
+            } catch (erro) {
+                divResultado.style.color = "red";
+                divResultado.innerHTML = "Erro de conexão.";
+            }
+        }
+    </script>
+</body>
+</html>

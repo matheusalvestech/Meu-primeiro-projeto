@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .caixa { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 300px; }
+        input, button { width: 95%; padding: 10px; margin-bottom: 15px; border-radius: 5px; }
+        input { border: 1px solid #ccc; }
+        button { background: #e74c3c; color: white; border: none; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="caixa">
+        <h2 style="text-align: center;">Entrar no Sistema</h2>
+        <form id="formLogin">
+            <input type="email" id="email" placeholder="E-mail" required>
+            <input type="password" id="senha" placeholder="Senha" required>
+            <button type="submit">Acessar Painel</button>
+        </form>
+        <div id="msg" style="text-align: center; color: red;"></div>
+    </div>
+
+    <script>
+        document.getElementById('formLogin').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+
+            const res = await fetch('http://localhost:3000/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, senha })
+            });
+
+            const dados = await res.json();
+
+            if (res.ok) {
+                // Salva o crachá na memória do navegador e vai para o painel!
+                localStorage.setItem('tokenDoUsuario', dados.token);
+                window.location.href = 'painel.html'; 
+            } else {
+                document.getElementById('msg').innerText = dados.erro;
+            }
+        });
+    </script>
+</body>
+</html>
