@@ -24,7 +24,6 @@ function inicializarBanco() {
     });
 }
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const db = new sqlite3.Database('./historico_leis.db');
 const CHAVE_SECRETA = process.env.CHAVE_SECRETA;
 let estaSincronizando = false;
 
